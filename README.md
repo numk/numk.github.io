@@ -5,7 +5,7 @@ Curl To Python
 
 Curl 代码 转换成 Python 爬虫代码
 
-新版本：Cookie 的 Header 字段， 改成 -b 参数
+新版本：Cookie 的 Header 字段， 改成 -b 参数, 取消“Cookie：”
 
 ```bash
 
