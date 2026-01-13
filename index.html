@@ -139,33 +139,35 @@
                 url = text.match(/curl \$?'(http.*?)'/)[1]
                 this.url = url
                 headers = {}
+                headers_without_cookie = {}
                 cookies = {}
                 data = {}
-                // 解析 -b 参数（新版本的 Cookie 参数）
-                reg_cookies_b = /-b \$?'(.*?)' /g
-                while (r = reg_cookies_b.exec(text)) {
-                    parsed_cookies = parse_cookie_string(r[1])
-                    Object.assign(cookies, parsed_cookies)
-                }
+
+                                
+                // 将 -b 参数转换为 -H 'Cookie:' 格式， 直接替换 -b 参数为 -H 'Cookie:' 参数
+                text = text.replace(/-b \$?'(.*?)' /g, '-H \'Cookie: $1\' ')
+
+                // 处理 $ 符号
+                text = text.replace(/\$'(.*?)' /g, "'$1'")
+
                 // 解析 -H 参数（headers，包括旧版本的 Cookie）
                 reg_headers = /-H \$?'(.*?): (.*?)' /g
                 while (r = reg_headers.exec(text)) {
-                    if (first_word_upper(r[1]) != 'Cookie') {
-                        headers[key_to_upper(r[1])] = r[2]
+                    header_key = first_word_upper(r[1])
+                    header_value = r[2]
+                    headers[header_key] = header_value
+
+                    if (header_key == 'Cookie') {
+                        parsed_cookies = parse_cookie_string(header_value)
+                        Object.assign(cookies, parsed_cookies)
                     } else {
-                        // 旧版本的 Cookie 处理（如果 -b 参数不存在，则使用这个）
-                        if (Object.getOwnPropertyNames(cookies).length == 0) {
-                            parsed_cookies = parse_cookie_string(r[2])
-                            Object.assign(cookies, parsed_cookies)
-                        }
+                        headers_without_cookie[header_key] = header_value
                     }
                 }
-                this.headers = jsonify(headers);
+                this.headers_with_cookie = jsonify(headers);
+                this.headers_without_cookie = jsonify(headers_without_cookie);
+                this.headers = this.headers_with_cookie;
                 this.cookies = jsonify(cookies);
-                // 生成 headers_with_cookie 和 headers_without_cookie
-                var headers_code = generate_headers_code(this.headers, this.cookies);
-                this.headers_with_cookie = headers_code.headers_with_cookie;
-                this.headers_without_cookie = headers_code.headers_without_cookie;
                 if (text.indexOf('--data-raw') >= 0) {
                     this.method = 'post';
                     reg_data = /--data-raw \$?'(.*?)' /g;
