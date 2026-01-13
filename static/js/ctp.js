@@ -34,19 +34,74 @@ parse_cookie_string = function (cookie_string) {
     });
     return cookies;
 }
+// 将 cookies 对象转换为 Cookie 字符串
+cookies_to_string = function (cookies_obj) {
+    if (!cookies_obj || Object.getOwnPropertyNames(cookies_obj).length == 0) {
+        return '';
+    }
+    var cookie_parts = [];
+    for (var key in cookies_obj) {
+        cookie_parts.push(key + '=' + cookies_obj[key]);
+    }
+    return cookie_parts.join('; ');
+}
+// 解析 jsonify 生成的字符串格式为对象
+parse_jsonify_string = function (jsonify_str) {
+    if (!jsonify_str || jsonify_str.trim() === '') {
+        return {};
+    }
+    // jsonify 生成的格式：键使用单引号，值根据是否包含单引号选择单引号或双引号
+    // 例如：{ 'key': 'value', 'key2': "value'with'quote" }
+    // 需要将键的单引号替换为双引号
+    // 匹配模式：'键名': 值
+    var json_str = jsonify_str.replace(/'([^']+)':/g, '"$1":'); // 键的单引号替换为双引号
+    try {
+        return JSON.parse(json_str);
+    } catch (e) {
+        // 如果解析失败，尝试更通用的方法：将所有单引号替换为双引号
+        try {
+            json_str = jsonify_str.replace(/'/g, '"');
+            return JSON.parse(json_str);
+        } catch (e2) {
+            return {};
+        }
+    }
+}
+// 生成 headers_with_cookie 和 headers_without_cookie 的字符串
+generate_headers_code = function (headers_str, cookies_str) {
+    var headers_obj = parse_jsonify_string(headers_str);
+    var cookies_obj = parse_jsonify_string(cookies_str);
+    
+    var headers_with_cookie = JSON.parse(JSON.stringify(headers_obj));
+    var headers_without_cookie = JSON.parse(JSON.stringify(headers_obj));
+    
+    // 生成带 Cookie 的 headers
+    var cookie_string = cookies_to_string(cookies_obj);
+    if (cookie_string) {
+        headers_with_cookie['Cookie'] = cookie_string;
+    }
+    
+    var result = {};
+    result.headers_with_cookie = jsonify(headers_with_cookie);
+    result.headers_without_cookie = jsonify(headers_without_cookie);
+    return result;
+}
 
 code_model_1 = function(mode,url,method,headers,cookies,data,post_mode){
+    var headers_code = generate_headers_code(headers, cookies);
+    
     text_code = '';
     text_code += 'from requests import session\n';
     text_code += 's = session()\n';
-    text_code += `headers = ${headers}\n`;
+    text_code += `headers_with_cookie = ${headers_code.headers_with_cookie}\n`;
+    text_code += `headers_without_cookie = ${headers_code.headers_without_cookie}\n`;
     if(cookies!=''){
         text_code += `cookies = ${cookies}\n`;
     }
     if(method=='post'){
         text_code += data!='' ? `data = ${data}\n` : '';
     }
-    text_code += 's.headers.update(headers)\n';
+    text_code += 's.headers.update(headers_with_cookie)\n';
     if(cookies!=''){
         text_code += 's.cookies.update(cookies)\n';
     }
@@ -63,6 +118,8 @@ code_model_1 = function(mode,url,method,headers,cookies,data,post_mode){
     return text_code;
 }
 code_model_json_mongo = function(mode,url,method,headers,cookies,data,post_mode){
+    var headers_code = generate_headers_code(headers, cookies);
+    
     text_code = '';
     text_code += 'from requests import session\n';
     text_code += 'from pymongo import MongoClient\n';
@@ -70,14 +127,15 @@ code_model_json_mongo = function(mode,url,method,headers,cookies,data,post_mode)
     text_code += `client = MongoClient('mongo://localhost:27017')\n`;
     text_code += `col = client['<dbName>']['<colName>']\n`;
     text_code += 's = session()\n';
-    text_code += `headers = ${headers}\n`;
+    text_code += `headers_with_cookie = ${headers_code.headers_with_cookie}\n`;
+    text_code += `headers_without_cookie = ${headers_code.headers_without_cookie}\n`;
     if(cookies!=''){
         text_code += `cookies = ${cookies}\n`;
     }
     if(method=='post'){
         text_code += data!='' ? `data = ${data}\n` : '';
     }
-    text_code += 's.headers.update(headers)\n';
+    text_code += 's.headers.update(headers_with_cookie)\n';
     if(cookies!=''){
         text_code += 's.cookies.update(cookies)\n';
     }
@@ -97,18 +155,21 @@ code_model_json_mongo = function(mode,url,method,headers,cookies,data,post_mode)
     return text_code;
 }
 code_model_json_csv = function(mode,url,method,headers,cookies,data,post_mode){
+    var headers_code = generate_headers_code(headers, cookies);
+    
     text_code = '';
     text_code += 'from requests import session\n';
     text_code += 'import pandas as pd\n';
     text_code += 's = session()\n';
-    text_code += `headers = ${headers}\n`;
+    text_code += `headers_with_cookie = ${headers_code.headers_with_cookie}\n`;
+    text_code += `headers_without_cookie = ${headers_code.headers_without_cookie}\n`;
     if(cookies!=''){
         text_code += `cookies = ${cookies}\n`;
     }
     if(method=='post'){
         text_code += data!='' ? `data = ${data}\n` : '';
     }
-    text_code += 's.headers.update(headers)\n';
+    text_code += 's.headers.update(headers_with_cookie)\n';
     if(cookies!=''){
         text_code += 's.cookies.update(cookies)\n';
     }
@@ -133,6 +194,8 @@ code_model_json_mysql = function(mode,url,method,headers,cookies,data,post_mode)
 }
 
 code_model_json_mongo_page = function(mode,url,method,headers,cookies,data,post_mode){
+    var headers_code = generate_headers_code(headers, cookies);
+    
     text_code = '';
     text_code += 'from requests import session\n';
     text_code += 'from pymongo import MongoClient\n';
@@ -141,14 +204,15 @@ code_model_json_mongo_page = function(mode,url,method,headers,cookies,data,post_
     text_code += `client = MongoClient('mongodb://localhost:27017')\n`;
     text_code += `col = client['<dbName>']['<colName>']\n`;
     text_code += 's = session()\n';
-    text_code += `headers = ${headers}\n`;
+    text_code += `headers_with_cookie = ${headers_code.headers_with_cookie}\n`;
+    text_code += `headers_without_cookie = ${headers_code.headers_without_cookie}\n`;
     if(cookies!=''){
         text_code += `cookies = ${cookies}\n`;
     }
     if(method=='post'){
         text_code += data!='' ? `data = ${data}\n` : '';
     }
-    text_code += 's.headers.update(headers)\n';
+    text_code += 's.headers.update(headers_with_cookie)\n';
     if(cookies!=''){
         text_code += 's.cookies.update(cookies)\n';
     }
@@ -173,19 +237,22 @@ code_model_json_mongo_page = function(mode,url,method,headers,cookies,data,post_
 }
 
 code_model_json_csv_page = function(mode,url,method,headers,cookies,data,post_mode){
+    var headers_code = generate_headers_code(headers, cookies);
+    
     text_code = '';
     text_code += 'from requests import session\n';
     text_code += 'import pandas as pd\n';
     text_code += 'from time import sleep\n';
     text_code += 's = session()\n';
-    text_code += `headers = ${headers}\n`;
+    text_code += `headers_with_cookie = ${headers_code.headers_with_cookie}\n`;
+    text_code += `headers_without_cookie = ${headers_code.headers_without_cookie}\n`;
     if(cookies!=''){
         text_code += `cookies = ${cookies}\n`;
     }
     if(method=='post'){
         text_code += data!='' ? `data = ${data}\n` : '';
     }
-    text_code += 's.headers.update(headers)\n';
+    text_code += 's.headers.update(headers_with_cookie)\n';
     if(cookies!=''){
         text_code += 's.cookies.update(cookies)\n';
     }
@@ -212,6 +279,8 @@ code_model_json_csv_page = function(mode,url,method,headers,cookies,data,post_mo
     return text_code;
 }
 code_model_xpath_mongo = function(mode,url,method,headers,cookies,data,post_mode){
+    var headers_code = generate_headers_code(headers, cookies);
+    
     text_code = '';
     text_code += 'from requests import session\n';
     text_code += 'from pymongo import MongoClient\n';
@@ -219,14 +288,15 @@ code_model_xpath_mongo = function(mode,url,method,headers,cookies,data,post_mode
     text_code += `client = MongoClient('mongodb://localhost:27017')\n`;
     text_code += `col = client['<dbName>']['<colName>']\n`;
     text_code += 's = session()\n';
-    text_code += `headers = ${headers}\n`;
+    text_code += `headers_with_cookie = ${headers_code.headers_with_cookie}\n`;
+    text_code += `headers_without_cookie = ${headers_code.headers_without_cookie}\n`;
     if(cookies!=''){
         text_code += `cookies = ${cookies}\n`;
     }
     if(method=='post'){
         text_code += data!='' ? `data = ${data}\n` : '';
     }
-    text_code += 's.headers.update(headers)\n';
+    text_code += 's.headers.update(headers_with_cookie)\n';
     if(cookies!=''){
         text_code += 's.cookies.update(cookies)\n';
     }
@@ -251,19 +321,22 @@ code_model_xpath_mongo = function(mode,url,method,headers,cookies,data,post_mode
 }
 
 code_model_xpath_csv = function(mode,url,method,headers,cookies,data,post_mode){
+    var headers_code = generate_headers_code(headers, cookies);
+    
     text_code = '';
     text_code += 'from requests import session\n';
     text_code += 'import pandas as pd\n';
     text_code += 'from lxml import etree\n';
     text_code += 's = session()\n';
-    text_code += `headers = ${headers}\n`;
+    text_code += `headers_with_cookie = ${headers_code.headers_with_cookie}\n`;
+    text_code += `headers_without_cookie = ${headers_code.headers_without_cookie}\n`;
     if(cookies!=''){
         text_code += `cookies = ${cookies}\n`;
     }
     if(method=='post'){
         text_code += data!='' ? `data = ${data}\n` : '';
     }
-    text_code += 's.headers.update(headers)\n';
+    text_code += 's.headers.update(headers_with_cookie)\n';
     if(cookies!=''){
         text_code += 's.cookies.update(cookies)\n';
     }
@@ -293,20 +366,23 @@ code_model_xpath_mysql = function(mode,url,method,headers,cookies,data,post_mode
     return '正在开发中...'
 }
 code_model_xpath_csv_page = function(mode,url,method,headers,cookies,data,post_mode){
+    var headers_code = generate_headers_code(headers, cookies);
+    
     text_code = '';
     text_code += 'from requests import session\n';
     text_code += 'import pandas as pd\n';
     text_code += 'from time import sleep\n';
     text_code += 'from lxml import etree\n';
     text_code += 's = session()\n';
-    text_code += `headers = ${headers}\n`;
+    text_code += `headers_with_cookie = ${headers_code.headers_with_cookie}\n`;
+    text_code += `headers_without_cookie = ${headers_code.headers_without_cookie}\n`;
     if(cookies!=''){
         text_code += `cookies = ${cookies}\n`;
     }
     if(method=='post'){
         text_code += data!='' ? `data = ${data}\n` : '';
     }
-    text_code += 's.headers.update(headers)\n';
+    text_code += 's.headers.update(headers_with_cookie)\n';
     if(cookies!=''){
         text_code += 's.cookies.update(cookies)\n';
     }

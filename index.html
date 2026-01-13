@@ -32,7 +32,19 @@
             <div style="width: 70%;height: 100%; margin-left: 5px;">
                 <label style="font-size: large;">Python&nbsp;&nbsp;</label>
                 <button class="clear_curl btn btn-primary copy" @click="copy_content(text_python, '代码');"> 复制 代码 </button>
-                <button class="clear_curl btn btn-primary copy" @click="copy_content(headers, 'Headers');"> 复制 Headers </button>
+                
+                <div class="dropdown dropdown-hover" style="display: inline;">
+                    <button class="btn btn-primary copy" type="button" data-toggle="dropdown" >复制 Headers&nbsp;&nbsp;<span class="caret"></span></button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a href="javascript:void(0)" @click="copy_content(headers_with_cookie, 'Headers (带Cookie)');" class="copy">带 Cookie 字段</a>
+                        </li>
+                        <li>
+                            <a href="javascript:void(0)" @click="copy_content(headers_without_cookie, 'Headers (不带Cookie)');" class="copy">不带 Cookie 字段</a>
+                        </li>
+                    </ul>
+                </div>
+                
                 <button class="clear_curl btn btn-primary copy" @click="copy_content(cookies, 'Cookies');"> 复制 Cookies </button>
                 <button class="clear_curl btn btn-primary copy" @click="copy_content(data, 'Data');"> 复制 Data </button>
                 <!-- <button class="clear_curl btn btn-primary"> 复制 User-Agent </button> -->
@@ -75,6 +87,8 @@
             text_curl: '',
             text_python: '',
             headers: '',
+            headers_with_cookie: '',
+            headers_without_cookie: '',
             cookies: '',
             data: '',
             method: 'get',
@@ -86,7 +100,7 @@
         },
         methods: {
             clear_content: function () {
-                this.text_curl = this.text_python = this.headers = this.data = this.cookies = '';
+                this.text_curl = this.text_python = this.headers = this.headers_with_cookie = this.headers_without_cookie = this.data = this.cookies = '';
             },
             copy_content: function (vary, title) {
                 // var clipboard = new ClipboardJS('.copy', {text:vary});
@@ -109,7 +123,7 @@
                 });
             },
             initical: function(del_curl_text=false){
-                this.headers = this.cookies = this.data = this.url = ''
+                this.headers = this.headers_with_cookie = this.headers_without_cookie = this.cookies = this.data = this.url = ''
                 this.method = 'get'
                 this.post_mode = 'data'
                 if (del_curl_text){
@@ -148,6 +162,10 @@
                 }
                 this.headers = jsonify(headers);
                 this.cookies = jsonify(cookies);
+                // 生成 headers_with_cookie 和 headers_without_cookie
+                var headers_code = generate_headers_code(this.headers, this.cookies);
+                this.headers_with_cookie = headers_code.headers_with_cookie;
+                this.headers_without_cookie = headers_code.headers_without_cookie;
                 if (text.indexOf('--data-raw') >= 0) {
                     this.method = 'post';
                     reg_data = /--data-raw \$?'(.*?)' /g;
