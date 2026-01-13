@@ -127,16 +127,23 @@
                 headers = {}
                 cookies = {}
                 data = {}
+                // 解析 -b 参数（新版本的 Cookie 参数）
+                reg_cookies_b = /-b \$?'(.*?)' /g
+                while (r = reg_cookies_b.exec(text)) {
+                    parsed_cookies = parse_cookie_string(r[1])
+                    Object.assign(cookies, parsed_cookies)
+                }
+                // 解析 -H 参数（headers，包括旧版本的 Cookie）
                 reg_headers = /-H \$?'(.*?): (.*?)' /g
                 while (r = reg_headers.exec(text)) {
                     if (first_word_upper(r[1]) != 'Cookie') {
                         headers[key_to_upper(r[1])] = r[2]
                     } else {
-                        Cookie = r[2].replace("\\'", "'")
-                        Cookie.split("; ").forEach(element => {
-                            elements = element.split('=')
-                            cookies[elements[0]] = elements.slice(1).join('=')
-                        });
+                        // 旧版本的 Cookie 处理（如果 -b 参数不存在，则使用这个）
+                        if (Object.getOwnPropertyNames(cookies).length == 0) {
+                            parsed_cookies = parse_cookie_string(r[2])
+                            Object.assign(cookies, parsed_cookies)
+                        }
                     }
                 }
                 this.headers = jsonify(headers);

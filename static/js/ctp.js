@@ -19,6 +19,21 @@ jsonify = function (text_json) {
     }
     return result + '}';
 }
+// 解析 Cookie 字符串（支持 -b 参数和 -H 'Cookie:' 格式）
+parse_cookie_string = function (cookie_string) {
+    var cookies = {};
+    if (!cookie_string || cookie_string.trim() === '') {
+        return cookies;
+    }
+    var Cookie = cookie_string.replace("\\'", "'");
+    Cookie.split("; ").forEach(element => {
+        var elements = element.split('=');
+        if (elements.length >= 2) {
+            cookies[elements[0]] = elements.slice(1).join('=');
+        }
+    });
+    return cookies;
+}
 
 code_model_1 = function(mode,url,method,headers,cookies,data,post_mode){
     text_code = '';
