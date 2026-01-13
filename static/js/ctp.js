@@ -41,7 +41,9 @@ cookies_to_string = function (cookies_obj) {
     }
     var cookie_parts = [];
     for (var key in cookies_obj) {
-        cookie_parts.push(key + '=' + cookies_obj[key]);
+        if (cookies_obj.hasOwnProperty(key)) {
+            cookie_parts.push(key + '=' + cookies_obj[key]);
+        }
     }
     return cookie_parts.join('; ');
 }
@@ -51,18 +53,25 @@ parse_jsonify_string = function (jsonify_str) {
         return {};
     }
     // jsonify 生成的格式：键使用单引号，值根据是否包含单引号选择单引号或双引号
-    // 例如：{ 'key': 'value', 'key2': "value'with'quote" }
-    // 需要将键的单引号替换为双引号
-    // 匹配模式：'键名': 值
-    var json_str = jsonify_str.replace(/'([^']+)':/g, '"$1":'); // 键的单引号替换为双引号
+    // 例如：{ 'key': 'value', 'key2': "value'with'quote", }
+    // 注意：jsonify 会在最后一项后面加逗号，需要移除
     try {
+        // 移除末尾的逗号和换行符
+        var cleaned_str = jsonify_str.replace(/,\s*\n\s*\}/g, '\n}').replace(/,\s*\}/g, '}');
+        // 先替换键的单引号为双引号：'key': -> "key":
+        var json_str = cleaned_str.replace(/'([^']+)':\s*/g, '"$1": ');
+        // 如果值是用单引号包裹的，也替换为双引号（但要避免替换值内部的单引号）
+        // 匹配模式：: 'value', 或 : 'value'}
+        json_str = json_str.replace(/:\s*'([^']*)'/g, ': "$1"');
         return JSON.parse(json_str);
     } catch (e) {
         // 如果解析失败，尝试更通用的方法：将所有单引号替换为双引号
         try {
-            json_str = jsonify_str.replace(/'/g, '"');
+            var cleaned_str = jsonify_str.replace(/,\s*\n\s*\}/g, '\n}').replace(/,\s*\}/g, '}');
+            var json_str = cleaned_str.replace(/'/g, '"');
             return JSON.parse(json_str);
         } catch (e2) {
+            console.error('Failed to parse jsonify string:', jsonify_str, e2);
             return {};
         }
     }
